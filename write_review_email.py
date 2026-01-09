@@ -4,6 +4,7 @@ Script to extract ticket information from Jira HTML files.
 """
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -217,9 +218,15 @@ def main():
         print(f"Title: {info['title']}")
         print(f"Author: {info['author']}")
 
+        # Write info dict to JSON file
+        info_file = f"FSDS-{info['fsds_number']}-info.json"
+        with open(info_file, 'w', encoding='utf-8') as f:
+            json.dump(info, f, indent=2)
+        print(f"Ticket info written to: {info_file}")
+
         # Generate HTML email
         html_email = generate_review_email_html(info)
-        output_file = f"review_email_FSDS-{info['fsds_number']}.html"
+        output_file = f"FSDS-{info['fsds_number']}-review-email.html"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(html_email)
         print(f"HTML email written to: {output_file}")
