@@ -104,6 +104,15 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
 
     review_deadline = current_date.strftime("%A %B %d").replace(" 0", " ")
 
+    # Get user's first name from git config
+    try:
+        git_name = subprocess.run(['git', 'config', '--get', 'user.name'],
+                                 capture_output=True, text=True, check=True)
+        full_name = git_name.stdout.strip()
+        first_name = full_name.split()[0] if full_name else "User"
+    except (subprocess.CalledProcessError, IndexError):
+        first_name = "User"
+
     # Read template
     with open(template_file, 'r', encoding='utf-8') as f:
         template = f.read()
@@ -113,6 +122,7 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     email_text = email_text.replace('{{title}}', ticket_info['title'])
     email_text = email_text.replace('{{fsds_number}}', f"FSDS-{ticket_info['fsds_number']}")
     email_text = email_text.replace('{{review_deadline}}', review_deadline)
+    email_text = email_text.replace('{{signature}}', first_name)
 
     # Convert to HTML while preserving whitespace and line breaks
     # Escape HTML entities first
