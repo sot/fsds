@@ -88,6 +88,20 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
         str: HTML formatted email content
     """
     import html
+    from datetime import datetime, timedelta
+
+    # Calculate review deadline (3 weekdays from today)
+    today = datetime.now()
+    weekdays_added = 0
+    current_date = today
+    
+    while weekdays_added < 3:
+        current_date += timedelta(days=1)
+        # Monday=0, Sunday=6, so weekdays are 0-4
+        if current_date.weekday() < 5:
+            weekdays_added += 1
+    
+    review_deadline = current_date.strftime("%A %B %d").replace(" 0", " ")
 
     # Read template
     with open(template_file, 'r', encoding='utf-8') as f:
@@ -97,6 +111,7 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     email_text = template.replace('{{author}}', ticket_info['author'])
     email_text = email_text.replace('{{title}}', ticket_info['title'])
     email_text = email_text.replace('{{fsds_number}}', f"FSDS-{ticket_info['fsds_number']}")
+    email_text = email_text.replace('{{review_deadline}}', review_deadline)
 
     # Convert to HTML while preserving whitespace and line breaks
     # Escape HTML entities first

@@ -3,7 +3,7 @@ The following FSDS change request submitted by {{author}} is ready for review:
     {{fsds_number}}:  {{title}}
     https://occ-cfa.cfa.harvard.edu/projects/FSDS/issues/{{fsds_number}}
 
-Please submit your review by **COB Wednesday January 14**.
+Please submit your review by **COB {{review_deadline}}**.
 
 Evaluate the request in the context of your team responsibilities, focusing on a few key elements:
 
