@@ -1,10 +1,10 @@
 # FSDS Review Email Generator
 
-A Python tool to extract ticket information from Jira HTML files and automatically generate review announcement and approved emails for Flight Support Data Systems (FSDS) change requests.
+A Python tool to retrieve ticket information from Jira API and automatically generate review announcement and approved emails for Flight Support Data Systems (FSDS) change requests.
 
 ## Features
 
-- Extracts ticket information from Jira HTML export files:
+- Retrieves ticket information directly from Jira API:
   - FSDS ticket number
   - Ticket title
   - Reporter/author name
@@ -13,44 +13,34 @@ A Python tool to extract ticket information from Jira HTML files and automatical
 - Generates HTML-formatted review announcement emails
 - Generates plain text approved emails
 - Preserves email template formatting with proper indentation
-- Supports both file input and clipboard input (Mac)
 - Optional automatic browser opening of generated HTML
 - Saves ticket information to JSON for reuse
 
 ## Scripts
 
 ### `write_review_email.py`
-Main script for extracting ticket info and generating review announcement emails.
+Main script for retrieving ticket info from Jira API and generating review announcement emails.
 
 ### `write_approved_email.py`
 Script for generating approved emails from previously saved ticket JSON data.
 
 ## Usage
 
-### Getting Jira HTML (Mac instructions)
+### Prerequisites
 
-1. Go to the FSDS Jira ticket page in your browser
-2. View the page source (⌘+Option+U or right-click → "View Page Source")
-3. Select all content (⌘+A) and copy (⌘+C)
-4. The HTML is now in your clipboard ready to use with `pbpaste`
+1. You need a Jira API token stored in `~/jira_api_token.txt`
+2. The token should have read access to the FSDS project in Jira
 
 ### Review Email Generation
 
-#### Basic usage with file input:
+#### Basic usage with FSDS number:
 ```bash
-python write_review_email.py jira-ticket.html
+python write_review_email.py 189
 ```
-
-#### Reading from clipboard (Mac):
-```bash
-pbpaste | python write_review_email.py
-```
-
-*Note: `pbpaste` is a Mac utility that outputs clipboard contents to stdout*
 
 #### Automatically open generated HTML in browser:
 ```bash
-python write_review_email.py jira-ticket.html --open
+python write_review_email.py 189 --open
 ```
 
 ### Approved Email Generation
@@ -72,21 +62,29 @@ python write_approved_email.py --help
 ## Requirements
 
 - Python 3.6+
-- BeautifulSoup4
 - Jinja2
+- jira (Python Jira API library)
 
 Install dependencies:
 ```bash
-pip install beautifulsoup4 jinja2
+pip install jinja2 jira
 ```
+
+## Setup
+
+1. Create a Jira API token:
+   - Go to your Jira profile settings
+   - Generate an API token
+   - Save the token to `~/jira_api_token.txt`
+
+2. Ensure your token has read access to the FSDS project
 
 ## Files
 
-- `write_review_email.py` - Main script for review email generation
+- `write_review_email.py` - Main script for review email generation (uses Jira API)
 - `write_approved_email.py` - Script for approved email generation
 - `email-template.md` - Jinja2 template for review announcement emails
 - `approved-template.md` - Jinja2 template for approved emails
-- `jira-fsds-ticket.html` - Example Jira HTML export file
 
 ## Template Variables
 
@@ -109,8 +107,8 @@ The email templates support the following placeholders:
 
 ### Review Email Script
 The script generates:
-1. Console output showing parsed ticket information
-2. HTML file named `review_email_FSDS-{number}.html` with formatted review announcement
+1. Console output showing retrieved ticket information
+2. HTML file named `FSDS-{number}-review-email.html` with formatted review announcement
 3. JSON file named `FSDS-{number}-info.json` with ticket data for later use
 
 ### Approved Email Script

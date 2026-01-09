@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to extract ticket information from Jira HTML files.
+Script to get ticket information from Jira API and generate review emails.
 """
 
 import argparse
@@ -8,69 +8,70 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 
-from bs4 import BeautifulSoup
 from jinja2 import Environment, FileSystemLoader
+from jira import JIRA
 
 
-def extract_ticket_info(html_content):
-    """
-    Extract ticket information from Jira HTML content.
+def init_jira_connection():
+    "Initializer and return a Jira connection object"
+    JIRA_SERVER = "https://occ-cfa.cfa.harvard.edu/"
+    token_auth = (Path.home() / "jira_api_token.txt").read_text().strip()
+    jira = JIRA(
+        server=JIRA_SERVER,
+        token_auth=token_auth,
+        timeout=60,
+    )
+
+    print(f"Connected as: {jira.current_user()} to {JIRA_SERVER}")
+    return jira
+
+
+def get_jira_issue(jira, fsds_number):
+    """Retrieve Jira issue object for given FSDS number.
 
     Args:
-        html_content (str): HTML content of the Jira ticket page
+        jira (JIRA): Authenticated JIRA connection object
+        fsds_number (int): FSDS ticket number
+    """
+    issue_key = f"FSDS-{fsds_number}"
+    try:
+        issue = jira.issue(issue_key)
+        return issue
+    except Exception as e:
+        print(f"Error retrieving issue {issue_key}: {e}")
+        sys.exit(1)
+
+def get_title_reporter_from_issue(issue):
+    """Extract title and reporter from Jira issue object.
+
+    Args:
+        issue (JIRA Issue): Jira issue object
+    """
+    title = issue.fields.summary
+    reporter = issue.fields.reporter.displayName
+    return title, reporter
+
+
+def get_ticket_info_from_jira(fsds_number):
+    """
+    Get ticket information from Jira API using FSDS number.
+
+    Args:
+        fsds_number (int): FSDS ticket number
 
     Returns:
         dict: Dictionary containing 'title', 'author', and 'fsds_number'
     """
+    # Initialize Jira connection
+    jira = init_jira_connection()
 
-    soup = BeautifulSoup(html_content, 'html.parser')
+    # Get issue from Jira
+    issue = get_jira_issue(jira, fsds_number)
 
-    # Extract document.title from JavaScript
-    title_match = re.search(r'document\.title\s*=\s*"([^"]*)"', html_content)
-    if not title_match:
-        raise ValueError("Could not find document.title in HTML")
-
-    full_title = title_match.group(1)
-
-    # Parse FSDS number and clean title
-    fsds_match = re.search(r'\[FSDS-(\d+)\]', full_title)
-    if not fsds_match:
-        raise ValueError("Could not extract FSDS number from title")
-
-    fsds_number = int(fsds_match.group(1))
-
-    # Extract title part (remove FSDS prefix and "- OCC Jira" suffix)
-    title_part = re.sub(r'^\[FSDS-\d+\]\s*', '', full_title)
-    title_part = re.sub(r'\s*-\s*OCC Jira$', '', title_part)
-    title = title_part.strip()
-
-    # Extract reporter name from definition list
-    dt_reporter = soup.find('dt', string='Reporter:')
-    if not dt_reporter:
-        raise ValueError("Could not find Reporter field")
-
-    dd_reporter = dt_reporter.find_next_sibling('dd')
-    if not dd_reporter:
-        raise ValueError("Could not find reporter data")
-
-    # Get clean text from the dd element
-    reporter_text = dd_reporter.get_text(strip=True)
-
-    # Clean up the reporter name (remove extra whitespace and button text)
-    reporter_lines = [line.strip() for line in reporter_text.split('\n') if line.strip()]
-    # The name should be the first substantial text that looks like a person's name
-    author = None
-    for line in reporter_lines:
-        words = line.split()
-        # Look for a line with 2+ words that start with capitals (likely a person's name)
-        if len(words) >= 2 and any(word[0].isupper() for word in words[:2]):
-            author = line
-            break
-
-    if not author:
-        # Fallback: just take the first non-empty line
-        author = reporter_lines[0] if reporter_lines else "Unknown"
+    # Extract title and reporter
+    title, author = get_title_reporter_from_issue(issue)
 
     return {
         'title': title,
@@ -202,12 +203,12 @@ def get_user_first_name():
 def main():
     """Main function with argparse CLI."""
     parser = argparse.ArgumentParser(
-        description='Extract ticket information from Jira HTML and generate review email'
+        description='Get ticket information from Jira API and generate review email'
     )
     parser.add_argument(
-        'html_file',
-        nargs='?',
-        help='Path to Jira HTML file (if not provided, reads from STDIN)'
+        'fsds_number',
+        type=int,
+        help='FSDS ticket number (e.g., 189 for FSDS-189)'
     )
     parser.add_argument(
         '--open',
@@ -217,23 +218,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Read HTML content
-    if args.html_file:
-        try:
-            with open(args.html_file, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-        except FileNotFoundError:
-            print(f"Error: File '{args.html_file}' not found")
-            sys.exit(1)
-    else:
-        # Read from STDIN
-        html_content = sys.stdin.read()
-        if not html_content.strip():
-            print("Error: No HTML content provided via STDIN")
-            sys.exit(1)
-
     try:
-        info = extract_ticket_info(html_content)
+        info = get_ticket_info_from_jira(args.fsds_number)
 
         # Add computed fields to ticket info
         info['review_deadline'] = calculate_review_deadline()
