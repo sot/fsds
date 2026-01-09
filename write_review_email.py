@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 from bs4 import BeautifulSoup
+from jinja2 import Environment, FileSystemLoader
 
 
 def extract_ticket_info(html_content):
@@ -114,16 +115,21 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     except (subprocess.CalledProcessError, IndexError):
         first_name = "User"
 
-    # Read template
-    with open(template_file, 'r', encoding='utf-8') as f:
-        template = f.read()
+    # Prepare template variables
+    template_vars = {
+        'author': ticket_info['author'],
+        'title': ticket_info['title'],
+        'fsds_number': f"FSDS-{ticket_info['fsds_number']}",
+        'review_deadline': review_deadline,
+        'signature': first_name
+    }
 
-    # Replace template variables
-    email_text = template.replace('{{author}}', ticket_info['author'])
-    email_text = email_text.replace('{{title}}', ticket_info['title'])
-    email_text = email_text.replace('{{fsds_number}}', f"FSDS-{ticket_info['fsds_number']}")
-    email_text = email_text.replace('{{review_deadline}}', review_deadline)
-    email_text = email_text.replace('{{signature}}', first_name)
+    # Set up Jinja2 environment
+    env = Environment(loader=FileSystemLoader('.'))
+    template = env.get_template(template_file)
+    
+    # Render template
+    email_text = template.render(template_vars)
 
     # Convert to HTML while preserving whitespace and line breaks
     # Escape HTML entities first
