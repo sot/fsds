@@ -84,50 +84,27 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     Generate HTML review email from template and ticket info.
 
     Args:
-        ticket_info (dict): Dictionary with title, author, fsds_number
+        ticket_info (dict): Dictionary with title, author, fsds_number, review_deadline, signature
         template_file (str): Path to email template file
 
     Returns:
         str: HTML formatted email content
     """
     import html
-    from datetime import datetime, timedelta
 
-    # Calculate review deadline (3 weekdays from today)
-    today = datetime.now()
-    weekdays_added = 0
-    current_date = today
-
-    while weekdays_added < 3:
-        current_date += timedelta(days=1)
-        # Monday=0, Sunday=6, so weekdays are 0-4
-        if current_date.weekday() < 5:
-            weekdays_added += 1
-
-    review_deadline = current_date.strftime("%A %B %d").replace(" 0", " ")
-
-    # Get user's first name from git config
-    try:
-        git_name = subprocess.run(['git', 'config', '--get', 'user.name'],
-                                 capture_output=True, text=True, check=True)
-        full_name = git_name.stdout.strip()
-        first_name = full_name.split()[0] if full_name else "User"
-    except (subprocess.CalledProcessError, IndexError):
-        first_name = "User"
-
-    # Prepare template variables
+    # Prepare template variables from ticket_info
     template_vars = {
         'author': ticket_info['author'],
         'title': ticket_info['title'],
         'fsds_number': f"FSDS-{ticket_info['fsds_number']}",
-        'review_deadline': review_deadline,
-        'signature': first_name
+        'review_deadline': ticket_info['review_deadline'],
+        'signature': ticket_info['signature']
     }
 
     # Set up Jinja2 environment
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(template_file)
-    
+
     # Render template
     email_text = template.render(template_vars)
 
@@ -183,6 +160,45 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     return full_html
 
 
+def calculate_review_deadline():
+    """
+    Calculate review deadline as 3 weekdays from today.
+
+    Returns:
+        str: Formatted deadline string like "Wednesday January 14"
+    """
+    from datetime import datetime, timedelta
+
+    today = datetime.now()
+    weekdays_added = 0
+    current_date = today
+
+    while weekdays_added < 3:
+        current_date += timedelta(days=1)
+        # Monday=0, Sunday=6, so weekdays are 0-4
+        if current_date.weekday() < 5:
+            weekdays_added += 1
+
+    return current_date.strftime("%A %B %d").replace(" 0", " ")
+
+
+def get_user_first_name():
+    """
+    Get user's first name from git config.
+
+    Returns:
+        str: First name from git config or "User" as fallback
+    """
+    try:
+        git_name = subprocess.run(['git', 'config', '--get', 'user.name'],
+                                 capture_output=True, text=True, check=True)
+        full_name = git_name.stdout.strip()
+        first_name = full_name.split()[0] if full_name else "User"
+    except (subprocess.CalledProcessError, IndexError):
+        first_name = "User"
+    return first_name
+
+
 def main():
     """Main function with argparse CLI."""
     parser = argparse.ArgumentParser(
@@ -218,6 +234,10 @@ def main():
 
     try:
         info = extract_ticket_info(html_content)
+
+        # Add computed fields to ticket info
+        info['review_deadline'] = calculate_review_deadline()
+        info['signature'] = get_user_first_name()
 
         # Always show parsed information
         print(f"FSDS Number: {info['fsds_number']}")
