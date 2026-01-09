@@ -3,23 +3,24 @@
 Script to extract ticket information from Jira HTML files.
 """
 
+import argparse
 import re
+import subprocess
+import sys
 
 from bs4 import BeautifulSoup
 
 
-def extract_ticket_info(html_file_path):
+def extract_ticket_info(html_content):
     """
-    Extract ticket information from a Jira HTML file.
+    Extract ticket information from Jira HTML content.
 
     Args:
-        html_file_path (str): Path to the Jira HTML file
+        html_content (str): HTML content of the Jira ticket page
 
     Returns:
         dict: Dictionary containing 'title', 'author', and 'fsds_number'
     """
-    with open(html_file_path, 'r', encoding='utf-8') as f:
-        html_content = f.read()
 
     soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -94,13 +95,13 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     today = datetime.now()
     weekdays_added = 0
     current_date = today
-    
+
     while weekdays_added < 3:
         current_date += timedelta(days=1)
         # Monday=0, Sunday=6, so weekdays are 0-4
         if current_date.weekday() < 5:
             weekdays_added += 1
-    
+
     review_deadline = current_date.strftime("%A %B %d").replace(" 0", " ")
 
     # Read template
@@ -166,31 +167,57 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
 
 
 def main():
-    """Main function to demonstrate usage."""
-    import sys
+    """Main function with argparse CLI."""
+    parser = argparse.ArgumentParser(
+        description='Extract ticket information from Jira HTML and generate review email'
+    )
+    parser.add_argument(
+        'html_file',
+        nargs='?',
+        help='Path to Jira HTML file (if not provided, reads from STDIN)'
+    )
+    parser.add_argument(
+        '--open',
+        action='store_true',
+        help='Automatically open the generated HTML file in browser'
+    )
 
-    if len(sys.argv) < 2:
-        print("Usage: python write_review_email.py <jira_html_file> [--html]")
-        print("  --html: Generate HTML email output")
-        sys.exit(1)
+    args = parser.parse_args()
 
-    html_file = sys.argv[1]
-    generate_html = '--html' in sys.argv
+    # Read HTML content
+    if args.html_file:
+        try:
+            with open(args.html_file, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+        except FileNotFoundError:
+            print(f"Error: File '{args.html_file}' not found")
+            sys.exit(1)
+    else:
+        # Read from STDIN
+        html_content = sys.stdin.read()
+        if not html_content.strip():
+            print("Error: No HTML content provided via STDIN")
+            sys.exit(1)
 
     try:
-        info = extract_ticket_info(html_file)
+        info = extract_ticket_info(html_content)
 
-        if generate_html:
-            html_email = generate_review_email_html(info)
-            # Write HTML to file
-            output_file = f"review_email_FSDS-{info['fsds_number']}.html"
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(html_email)
-            print(f"HTML email written to: {output_file}")
-        else:
-            print(f"FSDS Number: {info['fsds_number']}")
-            print(f"Title: {info['title']}")
-            print(f"Author: {info['author']}")
+        # Always show parsed information
+        print(f"FSDS Number: {info['fsds_number']}")
+        print(f"Title: {info['title']}")
+        print(f"Author: {info['author']}")
+
+        # Generate HTML email
+        html_email = generate_review_email_html(info)
+        output_file = f"review_email_FSDS-{info['fsds_number']}.html"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(html_email)
+        print(f"HTML email written to: {output_file}")
+
+        # Open in browser if requested
+        if args.open:
+            subprocess.run(['open', output_file])
+
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
