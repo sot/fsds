@@ -101,6 +101,15 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     # Convert to HTML while preserving whitespace and line breaks
     # Escape HTML entities first
     html_content = html.escape(email_text)
+    
+    # Convert leading spaces to non-breaking spaces to preserve indentation
+    lines = html_content.split('\n')
+    for i, line in enumerate(lines):
+        # Count leading spaces and convert them to &nbsp;
+        leading_spaces = len(line) - len(line.lstrip(' '))
+        if leading_spaces > 0:
+            lines[i] = '&nbsp;' * leading_spaces + line.lstrip(' ')
+    html_content = '\n'.join(lines)
 
     # Convert markdown-style formatting to HTML
     # Handle **bold** text
@@ -109,7 +118,7 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     # Handle [link text](url) markdown links
     html_content = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', html_content)
 
-    # Replace line breaks with <br> tags and wrap in <pre> to preserve whitespace
+    # Replace line breaks with <br> tags
     html_content = html_content.replace('\n', '<br>\n')
 
     # Wrap in basic HTML structure with default sans font and normal spacing
@@ -120,8 +129,9 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     <title>FSDS Review Request</title>
     <style>
         body {{
-            font-family: verdana, sans-serif;
+            font-family: Verdana, sans-serif;
             font-size: small;
+            margin: 20px;
         }}
         a {{
             color: blue;
