@@ -62,7 +62,7 @@ def extract_ticket_info(html_content):
     for line in reporter_lines:
         words = line.split()
         # Look for a line with 2+ words that start with capitals (likely a person's name)
-        if len(words) >= 2 and all(word[0].isupper() for word in words[:2]):
+        if len(words) >= 2 and any(word[0].isupper() for word in words[:2]):
             author = line
             break
 
