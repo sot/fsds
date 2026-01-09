@@ -101,7 +101,7 @@ def generate_review_email_html(ticket_info, template_file='email-template.md'):
     # Convert to HTML while preserving whitespace and line breaks
     # Escape HTML entities first
     html_content = html.escape(email_text)
-    
+
     # Convert leading spaces to non-breaking spaces to preserve indentation
     lines = html_content.split('\n')
     for i, line in enumerate(lines):
